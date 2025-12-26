@@ -1,0 +1,32 @@
+fillReportDetails(
+  apiResponse: any
+): void {
+
+  if (!apiResponse?.data?.retrieveUserReportDetails?.length) {
+    return;
+  }
+
+  const reportsFromApi = apiResponse.data.retrieveUserReportDetails;
+
+  // Clear existing reports first (important if API reloads)
+  this.commentaryTabData.forEach(tab => tab.reports = []);
+
+  reportsFromApi.forEach((report: any) => {
+
+    const matchingTab = this.commentaryTabData.find(
+      tab => tab.type === report.rptType
+    );
+
+    if (!matchingTab) {
+      return; // no tab for this rptType
+    }
+
+    const reportDetails: ReportDetails = {
+      id: report.reportId,
+      label: report.reportName,
+      shared: report.isCreated === 'Y'
+    };
+
+    matchingTab.reports.push(reportDetails);
+  });
+}
