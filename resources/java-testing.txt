@@ -16,3 +16,33 @@ export class AnalyticalReportService {
     this.reportIdSubject.next(null);
   }
 }
+
+
+export class AnalyticsComponent implements OnInit, OnDestroy {
+
+  reportId: number | null = null;
+  private destroy$ = new Subject<void>();
+
+  constructor(
+    private analyticalReportService: AnalyticalReportService
+  ) {}
+
+  ngOnInit(): void {
+    this.analyticalReportService.reportId$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(reportId => {
+        this.reportId = reportId;
+
+        if (reportId === null) {
+          this.openNewReportUI();
+        } else {
+          this.loadReport();
+        }
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
