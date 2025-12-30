@@ -1,142 +1,36 @@
-import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
-import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
-import { ReportStateService } from './report-state.service';
-// Import your other services (GraphqlService, CommonService, etc.)
-
-@Component({
-  selector: 'app-analytics',
-  templateUrl: './analytics.component.html'
-})
-export class AnalyticsComponent implements OnInit, OnDestroy {
-
-  reportId: number = -1;
-  reportDetails: any = null;
-  dataLoaded: boolean = false;
-
-  // Cleanup subject to prevent memory leaks
-  private destroy$ = new Subject<void>();
-
-  @ViewChild('analyticalDataTable') datatable: any; // Type strictly if possible
-
-  constructor(
-    private reportStateService: ReportStateService,
-    private graphqlService: GraphqlService, // Your existing service
-    private commonService: CommonService    // Your existing service
-  ) {}
-
-  ngOnInit(): void {
-    // SUBSCRIBE to the State Service
-    // This runs immediately on load, AND whenever the ID changes (via Parent OR Delete)
-    this.reportStateService.currentReportId$
-      .pipe(takeUntil(this.destroy$))
-      .subscribe(id => {
-        console.log('State Change Detected: New ID is', id);
+ngOnInit(): void {
+  // 1. Combine the metadata setup (cols/groupings) with the ID listener
+  this.analyticalReportService.currentReportId$
+    .pipe(
+      takeUntil(this.destroying$),
+      // switchMap ensures that if ID changes rapidly, previous requests are cancelled
+      switchMap(id => {
         this.reportId = id;
-        this.loadReport(); // Trigger the logic whenever ID updates
-      });
-  }
+        console.log('State Change Detected: New ID is', id);
 
-  loadReport(): void {
-    this.dataLoaded = false;
-
-    // CASE 1: Existing Report
-    if (this.reportId && this.reportId !== -1) {
-      console.log('--- Loading Existing Report: ' + this.reportId + ' ---');
-
-      this.graphqlService.retrieveReportDetailsById(this.reportId.toString())
-        .subscribe((response) => {
-          if (response && response.data && response.data.retrieveReportDetailsById) {
-             const rptDetails = response.data.retrieveReportDetailsById;
-             // Map your data
-             this.reportDetails = {
-               reportId: rptDetails.reportId,
-               reportName: rptDetails.reportName,
-               // ... rest of your mapping
-             };
-          }
-          this.dataLoaded = true;
+        // Fetch columns and groupings ONLY if you haven't already,
+        // or every time if they depend on reportType
+        return forkJoin({
+          cols: makeHttpGetRequest(this.httpClient, './api/report/column-mapping', {
+            params: { reportType: this.reportType }
+          }),
+          groupings: makeHttpGetRequest(this.httpClient, './api/report/grouping-attr', {
+            params: { reportType: this.reportType }
+          })
         });
+      })
+    )
+    .subscribe({
+      next: (response: any) => {
+        // 2. Set the grid definitions
+        this.pivotGroupColDefs = this.gridHelperService.getColModelByReportType(
+          response.groupings,
+          response.cols
+        );
 
-    } else {
-      // CASE 2: New Report (Or Reset after Delete)
-      console.log('--- Creating/Resetting to New Report ---');
-
-      // CRITICAL FIX: Explicitly clear the object
-      this.reportDetails = null;
-
-      // Optional: Clear grid rows directly if needed
-      if(this.datatable) {
-        this.datatable.rows = [];
-      }
-
-      this.dataLoaded = true;
-      // invoke your navigation or default setup
-      // this.navigateToReport();
-    }
-  }
-
-  // Your existing DELETE Logic
-  onDeleteReport(event: any): void {
-      if (event.reportDetails && event.reportDetails.reportId) {
-
-        this.graphqlService.disableReport(event.reportDetails.reportId)
-          .subscribe((response) => {
-            if (response && response.data && response.data.disableReportDetails) {
-
-              this.commonService.showSuccessMessage(
-                `${event.reportDetails.reportName} Deleted Successfully`
-              );
-
-              // *** THE MAGIC FIX ***
-              // Instead of manually calling loadReport(), we just update the Service.
-              // The subscription in ngOnInit will pick this up and run loadReport() automatically.
-              this.reportStateService.resetToNewReport();
-
-            } else {
-              this.commonService.showErrorMessage('Error Occurred while Deleting');
-            }
-          }, (error) => {
-             console.error('Error Deleting', error);
-             this.commonService.showErrorMessage('Error Deleting Report');
-          });
-      }
-  }
-
-  ngOnDestroy(): void {
-    // Unsubscribe to avoid memory leaks
-    this.destroy$.next();
-    this.destroy$.complete();
-  }
+        // 3. Now load the specific report data
+        this.loadReport();
+      },
+      error: (err) => errorHandler(err)
+    });
 }
-
-
-
-
-import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
-
-@Injectable({
-  providedIn: 'root'
-})
-export class ReportStateService {
-  // -1 indicates "New Report" or "No Active Report"
-  private reportIdSource = new BehaviorSubject<number>(-1);
-
-  // Expose as an Observable for components to listen to
-  currentReportId$ = this.reportIdSource.asObservable();
-
-  constructor() { }
-
-  // Called by Parent when selecting a report from the list
-  selectReport(id: number) {
-    this.reportIdSource.next(id);
-  }
-
-  // Called by Child when a report is deleted
-  resetToNewReport() {
-    this.reportIdSource.next(-1);
-  }
-}
-
-
