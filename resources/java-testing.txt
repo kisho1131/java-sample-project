@@ -1,68 +1,113 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
+import { Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
+import { ReportStateService } from './report-state.service';
+// Import your other services (GraphqlService, CommonService, etc.)
 
-@Injectable({ providedIn: 'root' })
-export class AnalyticalReportService {
-
-  private reportIdSubject = new BehaviorSubject<number | null>(null);
-
-  reportId$ = this.reportIdSubject.asObservable();
-
-  openExistingReport(reportId: number): void {
-    this.reportIdSubject.next(reportId);
-  }
-
-  openNewReport(): void {
-    this.reportIdSubject.next(null);
-  }
-}
-
-
+@Component({
+  selector: 'app-analytics',
+  templateUrl: './analytics.component.html'
+})
 export class AnalyticsComponent implements OnInit, OnDestroy {
 
-  reportId: number | null = null;
+  reportId: number = -1;
+  reportDetails: any = null;
+  dataLoaded: boolean = false;
+
+  // Cleanup subject to prevent memory leaks
   private destroy$ = new Subject<void>();
 
+  @ViewChild('analyticalDataTable') datatable: any; // Type strictly if possible
+
   constructor(
-    private analyticalReportService: AnalyticalReportService
+    private reportStateService: ReportStateService,
+    private graphqlService: GraphqlService, // Your existing service
+    private commonService: CommonService    // Your existing service
   ) {}
 
   ngOnInit(): void {
-    this.analyticalReportService.reportId$
+    // SUBSCRIBE to the State Service
+    // This runs immediately on load, AND whenever the ID changes (via Parent OR Delete)
+    this.reportStateService.currentReportId$
       .pipe(takeUntil(this.destroy$))
-      .subscribe(reportId => {
-        this.reportId = reportId;
-
-        if (reportId === null) {
-          this.openNewReportUI();
-        } else {
-          this.loadReport();
-        }
+      .subscribe(id => {
+        console.log('State Change Detected: New ID is', id);
+        this.reportId = id;
+        this.loadReport(); // Trigger the logic whenever ID updates
       });
   }
 
+  loadReport(): void {
+    this.dataLoaded = false;
+
+    // CASE 1: Existing Report
+    if (this.reportId && this.reportId !== -1) {
+      console.log('--- Loading Existing Report: ' + this.reportId + ' ---');
+
+      this.graphqlService.retrieveReportDetailsById(this.reportId.toString())
+        .subscribe((response) => {
+          if (response && response.data && response.data.retrieveReportDetailsById) {
+             const rptDetails = response.data.retrieveReportDetailsById;
+             // Map your data
+             this.reportDetails = {
+               reportId: rptDetails.reportId,
+               reportName: rptDetails.reportName,
+               // ... rest of your mapping
+             };
+          }
+          this.dataLoaded = true;
+        });
+
+    } else {
+      // CASE 2: New Report (Or Reset after Delete)
+      console.log('--- Creating/Resetting to New Report ---');
+
+      // CRITICAL FIX: Explicitly clear the object
+      this.reportDetails = null;
+
+      // Optional: Clear grid rows directly if needed
+      if(this.datatable) {
+        this.datatable.rows = [];
+      }
+
+      this.dataLoaded = true;
+      // invoke your navigation or default setup
+      // this.navigateToReport();
+    }
+  }
+
+  // Your existing DELETE Logic
+  onDeleteReport(event: any): void {
+      if (event.reportDetails && event.reportDetails.reportId) {
+
+        this.graphqlService.disableReport(event.reportDetails.reportId)
+          .subscribe((response) => {
+            if (response && response.data && response.data.disableReportDetails) {
+
+              this.commonService.showSuccessMessage(
+                `${event.reportDetails.reportName} Deleted Successfully`
+              );
+
+              // *** THE MAGIC FIX ***
+              // Instead of manually calling loadReport(), we just update the Service.
+              // The subscription in ngOnInit will pick this up and run loadReport() automatically.
+              this.reportStateService.resetToNewReport();
+
+            } else {
+              this.commonService.showErrorMessage('Error Occurred while Deleting');
+            }
+          }, (error) => {
+             console.error('Error Deleting', error);
+             this.commonService.showErrorMessage('Error Deleting Report');
+          });
+      }
+  }
+
   ngOnDestroy(): void {
+    // Unsubscribe to avoid memory leaks
     this.destroy$.next();
     this.destroy$.complete();
   }
-
-  private openNewReportUI(): void {
-    this.reportDetails = {
-      reportId: null,
-      reportName: 'New Analytical Report',
-      reportType: this.reportType,
-      reportDetails: {},
-      isEnabled: 'Y',
-      isSharedReport: 'N',
-      sharedUserDetails: []
-    };
-
-    this.clearGrid();
-    this.clearSelections();
-    this.clearAdditionalPayloads();
-
-    this.dataLoaded = true;
-  }
-
+}
 
 
