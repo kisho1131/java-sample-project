@@ -1,32 +1,18 @@
-fillReportDetails(
-  apiResponse: any
-): void {
+import { Injectable } from '@angular/core';
+import { BehaviorSubject } from 'rxjs';
 
-  if (!apiResponse?.data?.retrieveUserReportDetails?.length) {
-    return;
+@Injectable({ providedIn: 'root' })
+export class AnalyticalReportService {
+
+  private reportIdSubject = new BehaviorSubject<number | null>(null);
+
+  reportId$ = this.reportIdSubject.asObservable();
+
+  openExistingReport(reportId: number): void {
+    this.reportIdSubject.next(reportId);
   }
 
-  const reportsFromApi = apiResponse.data.retrieveUserReportDetails;
-
-  // Clear existing reports first (important if API reloads)
-  this.commentaryTabData.forEach(tab => tab.reports = []);
-
-  reportsFromApi.forEach((report: any) => {
-
-    const matchingTab = this.commentaryTabData.find(
-      tab => tab.type === report.rptType
-    );
-
-    if (!matchingTab) {
-      return; // no tab for this rptType
-    }
-
-    const reportDetails: ReportDetails = {
-      id: report.reportId,
-      label: report.reportName,
-      shared: report.isCreated === 'Y'
-    };
-
-    matchingTab.reports.push(reportDetails);
-  });
+  openNewReport(): void {
+    this.reportIdSubject.next(null);
+  }
 }
