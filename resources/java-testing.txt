@@ -1,36 +1,32 @@
 ngOnInit(): void {
-  // 1. Combine the metadata setup (cols/groupings) with the ID listener
-  this.analyticalReportService.currentReportId$
-    .pipe(
-      takeUntil(this.destroying$),
-      // switchMap ensures that if ID changes rapidly, previous requests are cancelled
-      switchMap(id => {
-        this.reportId = id;
-        console.log('State Change Detected: New ID is', id);
+  this.analyticalReportService.currentReportId$.pipe(
+    takeUntil(this.destroying$),
+    // switchMap handles the ID change and fetches metadata in order
+    switchMap(id => {
+      this.reportId = id;
+      console.log('State Change Detected: New ID is', id);
 
-        // Fetch columns and groupings ONLY if you haven't already,
-        // or every time if they depend on reportType
-        return forkJoin({
-          cols: makeHttpGetRequest(this.httpClient, './api/report/column-mapping', {
-            params: { reportType: this.reportType }
-          }),
-          groupings: makeHttpGetRequest(this.httpClient, './api/report/grouping-attr', {
-            params: { reportType: this.reportType }
-          })
-        });
-      })
-    )
-    .subscribe({
-      next: (response: any) => {
-        // 2. Set the grid definitions
-        this.pivotGroupColDefs = this.gridHelperService.getColModelByReportType(
-          response.groupings,
-          response.cols
-        );
+      // Fetch column mappings and groupings first
+      return forkJoin({
+        cols: makeHttpGetRequest(this.httpClient, './api/report/column-mapping', {
+          params: { reportType: this.reportType }
+        }),
+        groupings: makeHttpGetRequest(this.httpClient, './api/report/grouping-attr', {
+          params: { reportType: this.reportType }
+        })
+      });
+    })
+  ).subscribe({
+    next: (response: any) => {
+      // 1. Set the Grid Structure
+      this.pivotGroupColDefs = this.gridHelperService.getColModelByReportType(
+        response.groupings,
+        response.cols
+      );
 
-        // 3. Now load the specific report data
-        this.loadReport();
-      },
-      error: (err) => errorHandler(err)
-    });
+      // 2. Trigger data loading now that structure is ready
+      this.loadReport();
+    },
+    error: (err) => console.error(err)
+  });
 }
