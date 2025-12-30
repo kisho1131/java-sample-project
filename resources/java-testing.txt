@@ -111,3 +111,32 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
 }
 
 
+
+
+import { Injectable } from '@angular/core';
+import { BehaviorSubject } from 'rxjs';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class ReportStateService {
+  // -1 indicates "New Report" or "No Active Report"
+  private reportIdSource = new BehaviorSubject<number>(-1);
+
+  // Expose as an Observable for components to listen to
+  currentReportId$ = this.reportIdSource.asObservable();
+
+  constructor() { }
+
+  // Called by Parent when selecting a report from the list
+  selectReport(id: number) {
+    this.reportIdSource.next(id);
+  }
+
+  // Called by Child when a report is deleted
+  resetToNewReport() {
+    this.reportIdSource.next(-1);
+  }
+}
+
+
