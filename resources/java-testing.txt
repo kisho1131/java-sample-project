@@ -46,3 +46,23 @@ export class AnalyticsComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  private openNewReportUI(): void {
+    this.reportDetails = {
+      reportId: null,
+      reportName: 'New Analytical Report',
+      reportType: this.reportType,
+      reportDetails: {},
+      isEnabled: 'Y',
+      isSharedReport: 'N',
+      sharedUserDetails: []
+    };
+
+    this.clearGrid();
+    this.clearSelections();
+    this.clearAdditionalPayloads();
+
+    this.dataLoaded = true;
+  }
+
+
+
