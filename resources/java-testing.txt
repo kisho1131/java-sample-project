@@ -192,3 +192,46 @@ this.commonService.dmidState$
         }
       });
   }
+
+
+  --------------------------
+  @Input() set additionalRequestPayLoad(value: any[]) {
+    // 1. Capture the master blueprint from the parent
+    this._originalParams = value || [];
+
+    // 2. On first load, localAdditionalParams is a direct clone of the input
+    // This ensures it has ALL values (tmId, mshLevel4Id, etc.) exactly as passed.
+    this.localAdditionalParams = [...this._originalParams];
+
+    console.log('Initial Load: Complete values received from input', this.localAdditionalParams);
+  }
+
+
+  ngOnInit() {
+    this.commonService.dmidState$
+      .pipe(takeUntil(this.destroying$))
+      .subscribe(newId => {
+        if (newId) {
+          // Only now do we update the local copy with the new event ID
+          this.syncLocalParams(newId);
+          this.loadReport(); //
+        }
+      });
+  }
+
+
+  private syncLocalParams(newId: any) {
+    if (!this._originalParams || this._originalParams.length === 0) return;
+
+    // We map through the blueprint to create a fresh copy for the grid
+    this.localAdditionalParams = this._originalParams.map(item => {
+      // If the object has tmId, we update it; otherwise, we return the object as-is (preserving mshLevel4Id, etc.)
+      if (item && typeof item === 'object' && Object.prototype.hasOwnProperty.call(item, 'tmId')) {
+        return {
+          ...item,    // Preserve all other properties
+          tmId: newId // Update with the ID from the event
+        };
+      }
+      return item;
+    });
+  }
