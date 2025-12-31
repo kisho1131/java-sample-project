@@ -235,3 +235,42 @@ this.commonService.dmidState$
       return item;
     });
   }
+
+
+  @Input() set additionalRequestPayloadParams(value: any) {
+    this._originalParams = value;
+
+    // On first load, create a clean clone of whatever structure we received
+    if (Array.isArray(value)) {
+      this.localAdditionalParams = [...value];
+    } else if (value && typeof value === 'object') {
+      this.localAdditionalParams = { ...value };
+    } else {
+      this.localAdditionalParams = value;
+    }
+  }
+
+  private syncLocalParams(newId: any) {
+    const original = this._originalParams;
+
+    if (!original) return;
+
+    // 1. If it's an Array, use .map() to create a new reference
+    if (Array.isArray(original)) {
+      this.localAdditionalParams = original.map(item => {
+        if (item && typeof item === 'object' && Object.prototype.hasOwnProperty.call(item, 'tmId')) {
+          return { ...item, tmId: newId }; // Preserve all original keys
+        }
+        return item;
+      });
+    }
+    // 2. If it's a single Object (as seen in image_d7b043.png), update directly
+    else if (typeof original === 'object') {
+      this.localAdditionalParams = {
+          ...original,
+          tmId: newId
+      };
+    }
+
+    console.log('Successfully synced local params:', this.localAdditionalParams);
+  }
