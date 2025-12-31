@@ -112,3 +112,38 @@ private updatePayloadParams(newId: any) {
     console.log('Successfully updated params:', this.additionalRequestPayloadParams);
   }
 }
+
+
+// Inside ngOnInit subscription
+this.commonService.dmidState$
+  .pipe(takeUntil(this.destroying$))
+  .subscribe(newId => {
+    if (newId) {
+      // 1. Create a deep copy from the original @Input
+      // Using spread operator to ensure a new reference is created
+      const originalInput = this.additionalRequestPayloadParams;
+
+      if (Array.isArray(originalInput)) {
+        // If it's an array, map through and update
+        this.localAdditionalParams = originalInput.map(item => ({
+          ...item,
+          tmId: newId // Update tmId while keeping other props like mshLevel4Id
+        }));
+      } else if (originalInput && typeof originalInput === 'object') {
+        // If it's a single object, copy and update
+        this.localAdditionalParams = {
+          ...originalInput,
+          tmId: newId
+        };
+      } else {
+        // Fallback: if input is empty, initialize with the new ID
+        this.localAdditionalParams = [{ tmId: newId }];
+      }
+
+      console.log('Original Input remains unchanged:', this.additionalRequestPayloadParams);
+      console.log('Local Copy updated for Grid:', this.localAdditionalParams);
+
+      // 2. Reload the report
+      this.loadReport();
+    }
+  });
