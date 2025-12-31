@@ -64,3 +64,35 @@ ngOnInit() {
       }
     });
 }
+
+
+ngOnInit() {
+  this.commonService.dmidState$
+    .pipe(takeUntil(this.destroying$))
+    .subscribe(newId => {
+      if (newId) {
+        this.reportId = newId; //
+
+        // Update the TMID/DMID inside the additional parameters array
+        this.updatePayloadParams(newId);
+
+        // Reload the report with the new parameters
+        this.loadReport(); //
+      }
+    });
+}
+
+private updatePayloadParams(newId: any) {
+  if (this.additionalRequestPayloadParams && this.additionalRequestPayloadParams.length > 0) {
+    // We create a new array reference to ensure Angular detection triggers
+    this.additionalRequestPayloadParams = this.additionalRequestPayloadParams.map(param => {
+      // Check for your specific key (e.g., 'tmid', 'dmid', or 'id')
+      if (param.key === 'tmid' || param.key === 'dmid') {
+        return { ...param, value: newId };
+      }
+      return param;
+    });
+
+    console.log('Updated Additional Parameters:', this.additionalRequestPayloadParams);
+  }
+}
