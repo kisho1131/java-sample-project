@@ -147,3 +147,48 @@ this.commonService.dmidState$
       this.loadReport();
     }
   });
+
+  -----
+  private syncLocalParams(newId: any) {
+    const original = this._originalParams;
+
+    if (!original) {
+      this.localAdditionalParams = [{ tmId: newId }];
+      return;
+    }
+
+    // Deep copy and update based on the structure seen in logs
+    if (Array.isArray(original)) {
+      this.localAdditionalParams = original.map(item => ({
+        ...item,
+        tmId: newId
+      }));
+    } else if (typeof original === 'object') {
+      this.localAdditionalParams = {
+        ...original,
+        tmId: newId
+      };
+    }
+  }
+
+
+  private _originalParams: any;
+  public localAdditionalParams: any;
+
+  @Input() set additionalRequestPayloadParams(value: any) {
+    this._originalParams = value;
+    // Initialize the local copy immediately so it's ready for the first render
+    this.syncLocalParams(this.reportId);
+  }
+
+  ngOnInit() {
+    this.commonService.dmidState$
+      .pipe(takeUntil(this.destroying$))
+      .subscribe(newId => {
+        if (newId) {
+          this.reportId = newId; // Update local state
+          this.syncLocalParams(newId); // Update the local copy
+          this.loadReport(); // Trigger the grid refresh
+        }
+      });
+  }
