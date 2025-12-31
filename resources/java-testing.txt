@@ -30,3 +30,37 @@ ngOnInit(): void {
     error: (err) => console.error(err)
   });
 }
+
+---------
+
+import { Injectable } from '@angular/core';
+import { BehaviorSubject } from 'rxjs';
+
+@Injectable({ providedIn: 'root' })
+export class CommonService {
+  // Use BehaviorSubject to hold the "Current" DMID state
+  private dmidSource = new BehaviorSubject<any>(null);
+
+  // Observable that components will subscribe to
+  dmidState$ = this.dmidSource.asObservable();
+
+  // Method to update the DMID from AppComponent
+  updateDMID(newId: any) {
+    this.dmidSource.next(newId);
+  }
+}
+
+// Inside your DMID change logic
+this.commonService.updateDMID(newSelectedId);
+
+ngOnInit() {
+  this.commonService.dmidState$
+    .pipe(takeUntil(this.destroying$))
+    .subscribe(id => {
+      if (id) {
+        console.log('DMID Change Detected:', id);
+        this.reportId = id; //
+        this.loadReport();  // Re-trigger the data fetch
+      }
+    });
+}
