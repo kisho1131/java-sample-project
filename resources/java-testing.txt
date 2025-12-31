@@ -96,3 +96,19 @@ private updatePayloadParams(newId: any) {
     console.log('Updated Additional Parameters:', this.additionalRequestPayloadParams);
   }
 }
+
+private updatePayloadParams(newId: any) {
+  if (this.additionalRequestPayloadParams && this.additionalRequestPayloadParams.length > 0) {
+    // Creating a new array reference to trigger Angular's change detection
+    this.additionalRequestPayloadParams = this.additionalRequestPayloadParams.map(item => {
+      // Check if the property 'tmId' exists in this object
+      if (item.hasOwnProperty('tmId')) {
+        console.log('Found tmId property, updating to:', newId);
+        return { ...item, tmId: newId }; // Update the property directly
+      }
+      return item;
+    });
+
+    console.log('Successfully updated params:', this.additionalRequestPayloadParams);
+  }
+}
