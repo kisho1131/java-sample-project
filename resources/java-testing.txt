@@ -274,3 +274,25 @@ this.commonService.dmidState$
 
     console.log('Successfully synced local params:', this.localAdditionalParams);
   }
+
+
+  --------------
+  ngOnInit() {
+    // Ensure dataLoaded starts as false
+    this.dataLoaded = false;
+
+    forkJoin([
+      this.fetchReportDetails(),
+      this.fetchSharedUserDetails()
+    ]).subscribe({
+      next: (results) => {
+        // This block only runs once BOTH observables have completed
+        console.log('Both API calls finished successfully');
+        this.dataLoaded = true;
+      },
+      error: (err) => {
+        console.error('One of the API calls failed', err);
+        // Handle error (maybe set dataLoaded to true anyway, or show error message)
+      }
+    });
+  }
