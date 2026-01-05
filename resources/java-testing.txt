@@ -296,3 +296,54 @@ this.commonService.dmidState$
       }
     });
   }
+
+  --------------\
+
+  import { forkJoin } from 'rxjs';
+  import { tap } from 'rxjs/operators';
+
+  // 1. Function returns the Observable (No .subscribe here!)
+  fetchReportDetails() {
+    return this.graphqlService.retriveUserReportDetails().pipe(
+      tap((response: any) => {
+        if (response?.data?.retrieveUserReportDetails) {
+          const eligibleReports = response.data.retrieveUserReportDetails;
+          eligibleReports.forEach((rpt: any) => {
+            this.reports.push({ reportName: rpt.reportName, reportId: rpt.reportId });
+          });
+        }
+      })
+    );
+  }
+
+  // 2. Function returns the Observable (No .subscribe here!)
+  fetchSharedUserDetails() {
+    return this.graphqlService.getUserDetailsByMsh4Cd(this.mshLevel4Cds).pipe(
+      tap((response: any) => {
+        if (response?.data?.getUserDetailsByMsh4Cd) {
+          const userDetails = response.data.getUserDetailsByMsh4Cd;
+          userDetails.forEach((user: any) => {
+            this.mailRecipientList.push({ dlEmail: user.email, dlName: user.userName });
+          });
+        }
+      })
+    );
+  }
+
+  // 3. Execution in ngOnInit
+  ngOnInit() {
+    this.dataLoaded = false;
+
+    forkJoin({
+      reports: this.fetchReportDetails(),
+      users: this.fetchSharedUserDetails()
+    }).subscribe({
+      next: (val) => {
+        console.log('Success! Data collected:', val);
+        this.dataLoaded = true; // This will now wait for both
+      },
+      error: (err) => {
+        console.error('Check your API/GraphQL console. Something failed:', err);
+      }
+    });
+  }
