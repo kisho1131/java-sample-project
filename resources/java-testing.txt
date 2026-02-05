@@ -386,3 +386,53 @@ this.commonService.dmidState$
       }
   }
 
+  --------------------------------------------------------
+
+ import java.time.LocalDate;
+ import java.time.format.DateTimeFormatter;
+ import java.util.*;
+ import java.util.stream.Collectors;
+
+ public class DataGridMapper {
+
+     // Define formatters as constants for performance
+     private static final DateTimeFormatter INPUT_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
+     private static final DateTimeFormatter OUTPUT_FORMATTER = DateTimeFormatter.ofPattern("MMMdd, yyyy", Locale.ENGLISH);
+
+     public List<Map<String, Object>> processGridData(
+             List<Map<String, Object>> reportsData,
+             Map<String, String> colConfigMap) {
+
+         return reportsData.stream()
+                 .map(row -> transformRow(row, colConfigMap))
+                 .toList();
+     }
+
+     private Map<String, Object> transformRow(Map<String, Object> row, Map<String, String> colConfigMap) {
+         return row.entrySet().stream()
+                 // 1. Remove pfId from the stream
+                 .filter(entry -> !entry.getKey().equalsIgnoreCase("pfId"))
+                 .collect(Collectors.toMap(
+                     // 2. Map keys to UI Column Names
+                     entry -> colConfigMap.getOrDefault(entry.getKey(), entry.getKey()),
+                     // 3. Transform the Date value if the key is tmId
+                     entry -> transformValue(entry.getKey(), entry.getValue()),
+                     (existing, replacement) -> existing,
+                     LinkedHashMap::new
+                 ));
+     }
+
+     private Object transformValue(String key, Object value) {
+         if ("tmId".equals(key) && value != null) {
+             try {
+                 // Parse "20251027" -> Format to "Oct27, 2025"
+                 String dateStr = value.toString();
+                 return LocalDate.parse(dateStr, INPUT_FORMATTER).format(OUTPUT_FORMATTER);
+             } catch (Exception e) {
+                 return value; // Fallback to original if parsing fails
+             }
+         }
+         return value;
+     }
+ }
+
