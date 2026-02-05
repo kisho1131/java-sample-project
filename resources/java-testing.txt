@@ -347,3 +347,42 @@ this.commonService.dmidState$
       }
     });
   }
+
+
+  ----------
+  import java.util.*;
+  import java.util.stream.Collectors;
+
+  public class DataGridMapper {
+
+      /**
+       * Updates the keys of grid data based on a column configuration map.
+       * * @param reportsData The raw data list (List of Maps)
+       * @param colConfigMap Map containing {currentKey -> uiColumnName}
+       * @return A new list of maps with updated keys
+       */
+      public List<Map<String, Object>> mapToUiColumns(
+              List<Map<String, Object>> reportsData,
+              Map<String, String> colConfigMap) {
+
+          if (reportsData == null || colConfigMap == null) {
+              return Collections.emptyList();
+          }
+
+          return reportsData.stream()
+                  .map(row -> remapRow(row, colConfigMap))
+                  .toList(); // Using .toList() (Available in Java 16+)
+      }
+
+      private Map<String, Object> remapRow(Map<String, Object> row, Map<String, String> colConfigMap) {
+          return row.entrySet().stream()
+                  .collect(Collectors.toMap(
+                      // Map the key if it exists in config, otherwise keep original
+                      entry -> colConfigMap.getOrDefault(entry.getKey(), entry.getKey()),
+                      Map.Entry::getValue,
+                      (existing, replacement) -> existing, // Merge function to handle collisions
+                      LinkedHashMap::new // Maintains the original order of columns
+                  ));
+      }
+  }
+
